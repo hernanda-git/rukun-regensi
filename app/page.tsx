@@ -15,9 +15,12 @@ import {
   calculateAge,
 } from "@/lib/types";
 
+const STORAGE_BUCKET = "rukun-regensi-uploads";
+
 const initialCandidateForm: CandidateFormValues = {
   name: "",
   nik: "",
+  nomor_whatsapp: "",
   tanggal_lahir: new Date().toISOString().split("T")[0],
   status_perkawinan: MARITAL_STATUS_OPTIONS[0],
   gender: GENDER_OPTIONS[0],
@@ -26,6 +29,9 @@ const initialCandidateForm: CandidateFormValues = {
   status_pekerjaan: JOB_STATUS_OPTIONS[0],
   visi: "",
   misi: "",
+  foto_profil_url: "",
+  ktp_url: "",
+  riwayat_organisasi: "",
 };
 
 const initialSaranForm: SaranFormValues = {
@@ -40,14 +46,34 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"kandidat" | "saran">("kandidat");
   const [blokFilter, setBlokFilter] = useState<string>("");
   const [genderFilter, setGenderFilter] = useState<string>("");
-  const [candidateModalOpen, setCandidateModalOpen] = useState(false);
   const [saranModalOpen, setSaranModalOpen] = useState(false);
-  const [candidateFormValues, setCandidateFormValues] = useState(initialCandidateForm);
   const [saranFormValues, setSaranFormValues] = useState(initialSaranForm);
-  const [formMode, setFormMode] = useState<"create" | "edit">("create");
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-  const [candidateSubmitting, setCandidateSubmitting] = useState(false);
   const [saranSubmitting, setSaranSubmitting] = useState(false);
+  const [candidateModalOpen, setCandidateModalOpen] = useState(false);
+  const [candidateFormValues, setCandidateFormValues] = useState(initialCandidateForm);
+  const [candidateSubmitting, setCandidateSubmitting] = useState(false);
+  const [profileFile, setProfileFile] = useState<File | null>(null);
+  const [ktpFile, setKtpFile] = useState<File | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+
+  const uploadImageToBucket = async (file: File, folder: string) => {
+    const extension = file.name.split(".").pop();
+    const uniqueId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+    const filePath = `${folder}/${uniqueId}.${extension ?? "jpg"}`;
+
+    const { error: uploadError } = await supabase.storage.from(STORAGE_BUCKET).upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+    return data.publicUrl;
+  };
 
   const refreshData = async () => {
     setLoading(true);
@@ -78,73 +104,27 @@ export default function Home() {
     refreshData();
   }, []);
 
+  const openCandidateModal = () => {
+    setCandidateFormValues(initialCandidateForm);
+    setProfileFile(null);
+    setKtpFile(null);
+    setCandidateModalOpen(true);
+  };
+
   const closeCandidateModal = () => {
     setCandidateModalOpen(false);
     setCandidateFormValues(initialCandidateForm);
-    setFormMode("create");
-    setSelectedCandidateId(null);
+    setProfileFile(null);
+    setKtpFile(null);
+  };
+
+  const closeCandidateDetail = () => {
+    setSelectedCandidate(null);
   };
 
   const closeSaranModal = () => {
     setSaranModalOpen(false);
     setSaranFormValues(initialSaranForm);
-  };
-
-  const handleCandidateSubmit = async () => {
-    setCandidateSubmitting(true);
-    const payload = {
-      name: candidateFormValues.name,
-      nik: candidateFormValues.nik,
-      tanggal_lahir: candidateFormValues.tanggal_lahir,
-      status_perkawinan: candidateFormValues.status_perkawinan,
-      gender: candidateFormValues.gender,
-      blok: candidateFormValues.blok,
-      role: candidateFormValues.role,
-      status_pekerjaan: candidateFormValues.status_pekerjaan,
-      visi: candidateFormValues.visi,
-      misi: candidateFormValues.misi,
-    };
-
-    try {
-      if (formMode === "create") {
-        const { error } = await supabase.from("candidates").insert([payload]);
-        if (error) {
-          console.error("Failed to create candidate", error);
-          return;
-        }
-      } else if (selectedCandidateId) {
-        const { error } = await supabase
-          .from("candidates")
-          .update(payload)
-          .eq("id", selectedCandidateId);
-        if (error) {
-          console.error("Failed to update candidate", error);
-          return;
-        }
-      }
-
-      await refreshData();
-      closeCandidateModal();
-    } finally {
-      setCandidateSubmitting(false);
-    }
-  };
-
-  const handleCandidateDelete = async () => {
-    if (!selectedCandidateId) return;
-    setCandidateSubmitting(true);
-    try {
-      const { error } = await supabase.from("candidates").delete().eq("id", selectedCandidateId);
-      if (error) {
-        console.error("Failed to delete candidate", error);
-        return;
-      }
-
-      await refreshData();
-      closeCandidateModal();
-    } finally {
-      setCandidateSubmitting(false);
-    }
   };
 
   const handleSaranSubmit = async () => {
@@ -189,29 +169,15 @@ export default function Home() {
     }, {});
   }, [candidates]);
 
-  const openCandidateModal = (candidate?: Candidate) => {
-    if (candidate) {
-      setFormMode("edit");
-      setSelectedCandidateId(candidate.id);
-      setCandidateFormValues({
-        name: candidate.name,
-        nik: candidate.nik,
-        tanggal_lahir: candidate.tanggal_lahir,
-        status_perkawinan: candidate.status_perkawinan,
-        gender: candidate.gender,
-        blok: candidate.blok,
-        role: candidate.role,
-        status_pekerjaan: candidate.status_pekerjaan,
-        visi: candidate.visi,
-        misi: candidate.misi,
-      });
-    } else {
-      setFormMode("create");
-      setSelectedCandidateId(null);
-      setCandidateFormValues(initialCandidateForm);
-    }
+  const openCandidateDetail = (candidate: Candidate) => {
+    setSelectedCandidate(candidate);
+  };
 
-    setCandidateModalOpen(true);
+  const handleSaranChange = <K extends keyof SaranFormValues>(field: K, value: SaranFormValues[K]) => {
+    setSaranFormValues((current) => ({
+      ...current,
+      [field]: value,
+    }));
   };
 
   const handleCandidateChange = <K extends keyof CandidateFormValues>(field: K, value: CandidateFormValues[K]) => {
@@ -221,11 +187,60 @@ export default function Home() {
     }));
   };
 
-  const handleSaranChange = <K extends keyof SaranFormValues>(field: K, value: SaranFormValues[K]) => {
-    setSaranFormValues((current) => ({
-      ...current,
-      [field]: value,
-    }));
+  const handleCandidateSubmit = async () => {
+    setCandidateSubmitting(true);
+    try {
+      const normalizedWhatsapp = candidateFormValues.nomor_whatsapp.replace(/\D/g, "");
+
+      let fotoProfilUrl = candidateFormValues.foto_profil_url || null;
+      let ktpUrl = candidateFormValues.ktp_url || null;
+
+      if (profileFile) {
+        try {
+          fotoProfilUrl = await uploadImageToBucket(profileFile, "foto-profil");
+        } catch (error) {
+          console.error("Failed to upload foto profil", error);
+          return;
+        }
+      }
+
+      if (ktpFile) {
+        try {
+          ktpUrl = await uploadImageToBucket(ktpFile, "ktp");
+        } catch (error) {
+          console.error("Failed to upload KTP", error);
+          return;
+        }
+      }
+
+      const payload = {
+        name: candidateFormValues.name,
+        nik: candidateFormValues.nik,
+        nomor_whatsapp: normalizedWhatsapp,
+        tanggal_lahir: candidateFormValues.tanggal_lahir,
+        status_perkawinan: candidateFormValues.status_perkawinan,
+        gender: candidateFormValues.gender,
+        blok: candidateFormValues.blok,
+        role: candidateFormValues.role,
+        status_pekerjaan: candidateFormValues.status_pekerjaan,
+        visi: candidateFormValues.visi,
+        misi: candidateFormValues.misi,
+        foto_profil_url: fotoProfilUrl,
+        ktp_url: ktpUrl,
+        riwayat_organisasi: candidateFormValues.riwayat_organisasi,
+      };
+
+      const { error } = await supabase.from("candidates").insert([payload]);
+      if (error) {
+        console.error("Failed to create candidate", error);
+        return;
+      }
+
+      await refreshData();
+      closeCandidateModal();
+    } finally {
+      setCandidateSubmitting(false);
+    }
   };
 
   const summaryCards = [
@@ -378,7 +393,7 @@ export default function Home() {
                 {activeTab === "kandidat" ? (
                   <button
                     type="button"
-                    onClick={() => openCandidateModal()}
+                    onClick={openCandidateModal}
                     className="rounded-full bg-gradient-to-r from-blue-600 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:from-blue-600/90 hover:to-indigo-500/90"
                   >
                     Tambah Kandidat
@@ -400,7 +415,7 @@ export default function Home() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">Daftar kandidat aktif</p>
-                    <p className="text-sm text-slate-500">Ketuk untuk melihat detail atau edit data.</p>
+                    <p className="text-sm text-slate-500">Ketuk kartu untuk melihat detail. Data tidak dapat diubah.</p>
                   </div>
                 </div>
 
@@ -414,47 +429,64 @@ export default function Home() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {filteredCandidates.map((candidate) => (
-                      <button
-                        key={candidate.id}
-                        type="button"
-                        onClick={() => openCandidateModal(candidate)}
-                        className="w-full cursor-pointer rounded-3xl border border-slate-200/80 bg-white/90 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="text-lg font-semibold text-slate-900">{candidate.name}</p>
-                            <p className="text-sm text-slate-500">
-                              Blok {candidate.blok} • {candidate.gender}
-                            </p>
+                    {filteredCandidates.map((candidate) => {
+                      const age = calculateAge(candidate.tanggal_lahir);
+                      const initials = candidate.name ? candidate.name.charAt(0).toUpperCase() : "?";
+
+                      return (
+                        <button
+                          key={candidate.id}
+                          type="button"
+                          onClick={() => openCandidateDetail(candidate)}
+                          className="group w-full cursor-pointer rounded-3xl border border-slate-200/80 bg-white/90 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+                        >
+                          <div className="flex items-stretch gap-4">
+                            <div className="min-h-[96px] w-20 shrink-0 overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200">
+                              {candidate.foto_profil_url ? (
+                                <img
+                                  src={candidate.foto_profil_url}
+                                  alt={`Foto ${candidate.name}`}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-base font-semibold text-slate-400">
+                                  {initials}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-1 flex-col gap-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-base font-semibold text-slate-900">{candidate.name}</p>
+                                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 ring-1 ring-blue-200">
+                                  {candidate.role}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-500">
+                                Blok {candidate.blok} • {candidate.gender} • {age} tahun
+                              </p>
+                              <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1 ring-1 ring-slate-200">
+                                  Pekerjaan: {candidate.status_pekerjaan}
+                                </span>
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1 ring-1 ring-slate-200">
+                                  Status: {candidate.status_perkawinan}
+                                </span>
+                                {candidate.nomor_whatsapp && (
+                                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700 ring-1 ring-emerald-200">
+                                    WA: {candidate.nomor_whatsapp}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="hidden sm:block text-right">
+                              <span className="text-xs font-semibold text-blue-600 transition group-hover:translate-x-0.5">
+                                Lihat detail →
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-200">
-                              {candidate.role}
-                            </span>
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-                              {candidate.status_pekerjaan}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                          <span>Umur: {calculateAge(candidate.tanggal_lahir)} tahun</span>
-                          <span>Status: {candidate.status_perkawinan}</span>
-                          <span>NIK: {candidate.nik}</span>
-                          <span>RT/RW: {candidate.role}</span>
-                        </div>
-                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Visi</p>
-                            <p className="text-sm leading-relaxed text-slate-700">{candidate.visi || "-"}</p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Misi</p>
-                            <p className="text-sm leading-relaxed text-slate-700">{candidate.misi || "-"}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -509,11 +541,14 @@ export default function Home() {
       </div>
 
       {candidateModalOpen && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm">
           <div className="w-full max-w-lg">
             <div className="flex flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-100">
               <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-                <h2 className="text-lg font-semibold text-slate-900">Form Kandidat RT/RW</h2>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Tambah Kandidat</h2>
+                  <p className="text-xs text-slate-500">Isi data baru. Data yang sudah ada tidak bisa diubah.</p>
+                </div>
                 <button
                   type="button"
                   className="text-sm font-semibold text-slate-500 transition hover:text-slate-700"
@@ -537,6 +572,15 @@ export default function Home() {
                   onChange={(event) => handleCandidateChange("nik", event.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 />
+                <label className="text-xs font-semibold uppercase text-slate-500">Nomor Whatsapp</label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={candidateFormValues.nomor_whatsapp}
+                  onChange={(event) => handleCandidateChange("nomor_whatsapp", event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  placeholder="Contoh: 08123456789"
+                />
                 <label className="text-xs font-semibold uppercase text-slate-500">Tanggal Lahir</label>
                 <input
                   type="date"
@@ -550,10 +594,7 @@ export default function Home() {
                     <select
                       value={candidateFormValues.status_perkawinan}
                       onChange={(event) =>
-                        handleCandidateChange(
-                          "status_perkawinan",
-                          event.target.value as CandidateFormValues["status_perkawinan"]
-                        )
+                        handleCandidateChange("status_perkawinan", event.target.value as CandidateFormValues["status_perkawinan"])
                       }
                       className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     >
@@ -568,9 +609,7 @@ export default function Home() {
                     <label className="text-xs font-semibold uppercase text-slate-500">Gender</label>
                     <select
                       value={candidateFormValues.gender}
-                      onChange={(event) =>
-                        handleCandidateChange("gender", event.target.value as CandidateFormValues["gender"])
-                      }
+                      onChange={(event) => handleCandidateChange("gender", event.target.value as CandidateFormValues["gender"])}
                       className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     >
                       {GENDER_OPTIONS.map((gender) => (
@@ -586,9 +625,7 @@ export default function Home() {
                     <label className="text-xs font-semibold uppercase text-slate-500">Blok Rumah</label>
                     <select
                       value={candidateFormValues.blok}
-                      onChange={(event) =>
-                        handleCandidateChange("blok", event.target.value as CandidateFormValues["blok"])
-                      }
+                      onChange={(event) => handleCandidateChange("blok", event.target.value as CandidateFormValues["blok"])}
                       className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     >
                       {BLOK_OPTIONS.map((blok) => (
@@ -602,9 +639,7 @@ export default function Home() {
                     <label className="text-xs font-semibold uppercase text-slate-500">Kandidat Untuk</label>
                     <select
                       value={candidateFormValues.role}
-                      onChange={(event) =>
-                        handleCandidateChange("role", event.target.value as CandidateFormValues["role"])
-                      }
+                      onChange={(event) => handleCandidateChange("role", event.target.value as CandidateFormValues["role"])}
                       className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     >
                       {ROLE_OPTIONS.map((role) => (
@@ -619,10 +654,7 @@ export default function Home() {
                 <select
                   value={candidateFormValues.status_pekerjaan}
                   onChange={(event) =>
-                    handleCandidateChange(
-                      "status_pekerjaan",
-                      event.target.value as CandidateFormValues["status_pekerjaan"]
-                    )
+                    handleCandidateChange("status_pekerjaan", event.target.value as CandidateFormValues["status_pekerjaan"])
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 >
@@ -632,6 +664,40 @@ export default function Home() {
                     </option>
                   ))}
                 </select>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase text-slate-500">Foto Profil</label>
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+                    <input type="file" accept="image/*" onChange={(event) => setProfileFile(event.target.files?.[0] ?? null)} />
+                    <p className="mt-2 text-xs text-slate-500">
+                      {profileFile
+                        ? `File dipilih: ${profileFile.name}`
+                        : candidateFormValues.foto_profil_url
+                        ? "File tersimpan akan diganti jika Anda mengunggah baru."
+                        : "Unggah foto profil kandidat."}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase text-slate-500">KTP</label>
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+                    <input type="file" accept="image/*" onChange={(event) => setKtpFile(event.target.files?.[0] ?? null)} />
+                    <p className="mt-2 text-xs text-slate-500">
+                      {ktpFile
+                        ? `File dipilih: ${ktpFile.name}`
+                        : candidateFormValues.ktp_url
+                        ? "File tersimpan akan diganti jika Anda mengunggah baru."
+                        : "Unggah foto KTP kandidat."}
+                    </p>
+                  </div>
+                </div>
+                <label className="text-xs font-semibold uppercase text-slate-500">Riwayat Organisasi / Kegiatan Sosial</label>
+                <textarea
+                  value={candidateFormValues.riwayat_organisasi}
+                  onChange={(event) => handleCandidateChange("riwayat_organisasi", event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  rows={3}
+                  placeholder="Tuliskan pengalaman organisasi atau kegiatan sosial."
+                />
                 <label className="text-xs font-semibold uppercase text-slate-500">Visi</label>
                 <textarea
                   value={candidateFormValues.visi}
@@ -648,16 +714,6 @@ export default function Home() {
                 />
               </div>
               <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 px-6 py-4">
-                {formMode === "edit" && (
-                  <button
-                    type="button"
-                    onClick={handleCandidateDelete}
-                    disabled={candidateSubmitting}
-                    className="rounded-2xl border border-red-300 px-5 py-2 text-sm font-semibold text-red-500 transition hover:bg-red-50 disabled:opacity-60"
-                  >
-                    {candidateSubmitting ? "Menghapus..." : "Hapus"}
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={handleCandidateSubmit}
@@ -673,6 +729,165 @@ export default function Home() {
                 >
                   Batal
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedCandidate && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-3xl">
+            <div className="flex flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-100">
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Detail Kandidat</h2>
+                  <p className="text-xs text-slate-500">Data hanya untuk dibaca</p>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-slate-500 transition hover:text-slate-700"
+                  onClick={closeCandidateDetail}
+                >
+                  Tutup
+                </button>
+              </div>
+              <div className="max-h-[calc(100vh-8rem)] overflow-y-auto px-6 pb-6 pt-0">
+                <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-stretch">
+                  <div className="h-40 w-40 overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200">
+                    {selectedCandidate.foto_profil_url ? (
+                      <img
+                        src={selectedCandidate.foto_profil_url}
+                        alt={`Foto ${selectedCandidate.name}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-slate-400">
+                        {selectedCandidate.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xl font-semibold text-slate-900">{selectedCandidate.name}</p>
+                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700 ring-1 ring-blue-200">
+                        {selectedCandidate.role}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      Blok {selectedCandidate.blok} • {selectedCandidate.gender} • {calculateAge(selectedCandidate.tanggal_lahir)} tahun
+                    </p>
+                    <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 ring-1 ring-slate-200">
+                        Status: {selectedCandidate.status_perkawinan}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 ring-1 ring-slate-200">
+                        Pekerjaan: {selectedCandidate.status_pekerjaan}
+                      </span>
+                      {selectedCandidate.nomor_whatsapp && (
+                        <a
+                          href={`https://wa.me/${selectedCandidate.nomor_whatsapp.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700 ring-1 ring-emerald-200 transition hover:text-emerald-800"
+                        >
+                          Hubungi via WA
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                    <p className="text-xs font-semibold uppercase text-slate-500">NIK</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{selectedCandidate.nik}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                    <p className="text-xs font-semibold uppercase text-slate-500">Tanggal Lahir</p>
+                    <p className="mt-1 text-sm text-slate-800">
+                      {selectedCandidate.tanggal_lahir} ({calculateAge(selectedCandidate.tanggal_lahir)} tahun)
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                    <p className="text-xs font-semibold uppercase text-slate-500">Nomor Whatsapp</p>
+                    <p className="mt-1 text-sm text-slate-800">{selectedCandidate.nomor_whatsapp || "-"}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                    <p className="text-xs font-semibold uppercase text-slate-500">Blok &amp; Kandidasi</p>
+                    <p className="mt-1 text-sm text-slate-800">
+                      Blok {selectedCandidate.blok} • {selectedCandidate.role}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Visi</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-700">{selectedCandidate.visi || "-"}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Misi</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-700">{selectedCandidate.misi || "-"}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Riwayat Organisasi / Kegiatan Sosial
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-700">{selectedCandidate.riwayat_organisasi || "-"}</p>
+                </div>
+
+                {(selectedCandidate.foto_profil_url || selectedCandidate.ktp_url) && (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    {selectedCandidate.foto_profil_url && (
+                      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 p-3 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Foto Profil</p>
+                        <img
+                          src={selectedCandidate.foto_profil_url}
+                          alt="Foto Profil"
+                          className="mt-2 h-48 w-full rounded-xl object-cover"
+                        />
+                      </div>
+                    )}
+                    {selectedCandidate.ktp_url && (
+                      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 p-3 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">KTP</p>
+                        <img
+                          src={selectedCandidate.ktp_url}
+                          alt="KTP"
+                          className="mt-2 h-48 w-full rounded-xl bg-white object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {(selectedCandidate.foto_profil_url || selectedCandidate.ktp_url) && (
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {selectedCandidate.foto_profil_url && (
+                      <a
+                        href={selectedCandidate.foto_profil_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 ring-1 ring-blue-200 transition hover:text-blue-800"
+                      >
+                        Lihat foto profil
+                      </a>
+                    )}
+                    {selectedCandidate.ktp_url && (
+                      <a
+                        href={selectedCandidate.ktp_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:text-slate-900"
+                      >
+                        Lihat KTP
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

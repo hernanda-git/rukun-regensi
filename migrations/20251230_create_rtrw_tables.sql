@@ -18,7 +18,17 @@ CREATE TABLE IF NOT EXISTS public.candidates (
     role IN ('RT', 'RW')
   ),
   status_pekerjaan text NOT NULL CHECK (
-    status_pekerjaan IN ('Bekerja', 'Tidak Bekerja', 'Pelajar/Mahasiswa', 'Belum Bekerja')
+    status_pekerjaan IN (
+      'Pelajar/Mahasiswa',
+      'Wira Usaha',
+      'Wira Swasta',
+      'Ibu Rumah Tangga',
+      'PNS',
+      'Bapak Rumah Tangga',
+      'Tidak Bekerja',
+      'Belum Bekerja',
+      'Lainnya'
+    )
   ),
   visi text NOT NULL,
   misi text NOT NULL,

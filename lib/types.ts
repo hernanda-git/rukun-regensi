@@ -15,10 +15,15 @@ export const MARITAL_STATUS_OPTIONS = [
 export type MaritalStatusOption = (typeof MARITAL_STATUS_OPTIONS)[number];
 
 export const JOB_STATUS_OPTIONS = [
-  "Bekerja",
-  "Tidak Bekerja",
   "Pelajar/Mahasiswa",
+  "Wira Usaha",
+  "Wira Swasta",
+  "Ibu Rumah Tangga",
+  "Bapak Rumah Tangga",
+  "PNS",
+  "Tidak Bekerja",
   "Belum Bekerja",
+  "Lainnya",
 ] as const;
 export type JobStatusOption = (typeof JOB_STATUS_OPTIONS)[number];
 
@@ -26,6 +31,7 @@ export interface Candidate {
   id: string;
   name: string;
   nik: string;
+  nomor_whatsapp: string | null;
   tanggal_lahir: string;
   status_perkawinan: MaritalStatusOption;
   gender: GenderOption;
@@ -34,6 +40,9 @@ export interface Candidate {
   status_pekerjaan: JobStatusOption;
   visi: string;
   misi: string;
+  foto_profil_url: string | null;
+  ktp_url: string | null;
+  riwayat_organisasi: string | null;
   created_at: string | null;
 }
 
@@ -41,6 +50,7 @@ export interface CandidateFormValues {
   id?: string;
   name: string;
   nik: string;
+  nomor_whatsapp: string;
   tanggal_lahir: string;
   status_perkawinan: MaritalStatusOption;
   gender: GenderOption;
@@ -49,6 +59,9 @@ export interface CandidateFormValues {
   status_pekerjaan: JobStatusOption;
   visi: string;
   misi: string;
+  foto_profil_url: string;
+  ktp_url: string;
+  riwayat_organisasi: string;
 }
 
 export interface Saran {
