@@ -19,8 +19,18 @@
   }
 }
 
+* {
+  box-sizing: border-box;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: radial-gradient(circle at 10% 20%, #e8f0ff 0, transparent 35%),
+    radial-gradient(circle at 80% 0, #f7e9ff 0, transparent 30%),
+    linear-gradient(180deg, #f9fbff 0%, #f6f8fb 100%);
+  color: #0f172a;
+  font-family: var(--font-geist-sans), "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  min-height: 100vh;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
