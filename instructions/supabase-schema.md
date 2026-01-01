@@ -13,6 +13,7 @@
 - `visi` (text) – candidate Vision statement.
 - `misi` (text) – candidate Mission statement.
 - `created_at` (timestamp) – default `now()`.
+- `is_registering_for_someone_else` (boolean) – whether the nomination is submitted on someone else's behalf; defaults to `false`.
 
 ## Table: sarans
 - `id` (uuid) – primary key, default `gen_random_uuid()`.

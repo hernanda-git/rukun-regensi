@@ -26,6 +26,7 @@ const initialCandidateForm: CandidateFormValues = {
   gender: GENDER_OPTIONS[0],
   blok: BLOK_OPTIONS[0],
   role: ROLE_OPTIONS[0],
+  is_registering_for_someone_else: false,
   status_pekerjaan: JOB_STATUS_OPTIONS[0],
   visi: "",
   misi: "",
@@ -222,6 +223,7 @@ export default function Home() {
         gender: candidateFormValues.gender,
         blok: candidateFormValues.blok,
         role: candidateFormValues.role,
+        is_registering_for_someone_else: candidateFormValues.is_registering_for_someone_else,
         status_pekerjaan: candidateFormValues.status_pekerjaan,
         visi: candidateFormValues.visi,
         misi: candidateFormValues.misi,
@@ -650,6 +652,20 @@ export default function Home() {
                     </select>
                   </div>
                 </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    id="registerForSomeoneElse"
+                    type="checkbox"
+                    checked={candidateFormValues.is_registering_for_someone_else}
+                    onChange={(event) =>
+                      handleCandidateChange("is_registering_for_someone_else", event.target.checked)
+                    }
+                    className="h-4 w-4 rounded border border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="registerForSomeoneElse" className="text-sm font-semibold text-slate-700">
+                    Mendaftarkan untuk orang lain
+                  </label>
+                </div>
                 <label className="text-xs font-semibold uppercase text-slate-500">Status Pekerjaan</label>
                 <select
                   value={candidateFormValues.status_pekerjaan}
@@ -817,6 +833,15 @@ export default function Home() {
                     <p className="text-xs font-semibold uppercase text-slate-500">Blok &amp; Kandidasi</p>
                     <p className="mt-1 text-sm text-slate-800">
                       Blok {selectedCandidate.blok} • {selectedCandidate.role}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                    <p className="text-xs font-semibold uppercase text-slate-500">Mendaftarkan untuk orang lain</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {selectedCandidate.is_registering_for_someone_else ? "Ya" : "Tidak"}
                     </p>
                   </div>
                 </div>

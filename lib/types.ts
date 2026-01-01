@@ -37,6 +37,7 @@ export interface Candidate {
   gender: GenderOption;
   blok: BlokOption;
   role: RoleOption;
+  is_registering_for_someone_else: boolean;
   status_pekerjaan: JobStatusOption;
   visi: string;
   misi: string;
@@ -56,6 +57,7 @@ export interface CandidateFormValues {
   gender: GenderOption;
   blok: BlokOption;
   role: RoleOption;
+  is_registering_for_someone_else: boolean;
   status_pekerjaan: JobStatusOption;
   visi: string;
   misi: string;
