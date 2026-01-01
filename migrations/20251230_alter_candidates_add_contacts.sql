@@ -28,4 +28,4 @@ ALTER TABLE public.candidates
 ALTER TABLE public.candidates
   ADD CONSTRAINT candidates_nomor_whatsapp_digits CHECK (
     nomor_whatsapp IS NULL OR nomor_whatsapp ~ '^[0-9]+$'
-  );
+  ); 
