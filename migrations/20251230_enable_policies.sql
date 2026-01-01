@@ -1,6 +1,6 @@
 -- Enable RLS (usually enabled by default on Supabase)
 ALTER TABLE public.candidates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sarans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sarans ENABLE ROW LEVEL SECURITY; 
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
 -- Clean up old policies to avoid duplicates when re-running
